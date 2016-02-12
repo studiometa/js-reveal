@@ -3,10 +3,12 @@ var Reveal = Reveal || {};
 (function() {
 	'use strict';
 
-	var _, opts, slctr, lastPos, newPos, loop, viewHeight;
+	var _, opts, slctr, lastPos, newPos, loop, viewHeight, addEndEvent;
 	var $document = $(document);
 	var $window = $(window);
 	var raf = Modernizr.prefixed('requestAnimationFrame', window) || function(callback) { window.setTimeout(callback, 1000 / 60); };
+
+
 
 	/*
 	 * Global Reveal
@@ -26,6 +28,8 @@ var Reveal = Reveal || {};
 
 		_.$items = $(selector);
 		_.isActive = false;
+
+		$window.on('resize', addEndEvent);
 
 		// Set all the items
 		_.set();
@@ -74,9 +78,9 @@ var Reveal = Reveal || {};
 	Reveal.prototype.init = function() {
 		console.log('reveal:init');
 		var _ = this;
-		_.isActive = true;
+		_.isActive = _.$items.length ? true : false;
 		loop();
-		$window.on('resizeEnd', _.update);
+		$window.on('resizeEnd', resizeUpdate);
 		return _;
 	};
 
@@ -90,7 +94,7 @@ var Reveal = Reveal || {};
 		console.log('reveal:disable');
 		var _ = this;
 		_.isActive = false;
-		$window.off('resizeEnd', _.update);
+		$window.off('resizeEnd', resizeUpdate);
 		return _;
 	};
 
@@ -154,6 +158,11 @@ var Reveal = Reveal || {};
 			this._height = $this.outerHeight();
 		});
 
+		// Trigger a new loop for
+		// items which have been added
+		// and are in the viewport
+		lastPos -= 1;
+
 		return _;
 	};
 
@@ -215,10 +224,57 @@ var Reveal = Reveal || {};
 				// Remove the item from the global object
 				_.$items = _.$items.not(item);
 				// If no items left, disable reveal
-				if (_.$items.length <= 0) _.isActive = false;
+				if (_.$items.length <= 0) _.disable();
 			}
 		});
 	};
+
+
+
+
+	/* ================================
+	 * Utils
+	 * ================================ */
+
+
+	function resizeUpdate() {
+		_.update(_.$items);
+	}
+
+	/**
+	 * Returns a function, that, as long as it continues to be invoked, will not
+	 * be triggered. The function will be called after it stops being called for
+	 * N milliseconds. If `immediate` is passed, trigger the function on the
+	 * leading edge, instead of the trailing.
+	 * @param  {number}    wait       Timer
+	 * @param  {boolean}   immediate  Launch the function immediately
+	 * @param  {function}  func       The function that needs debounce
+	 * @return {function}             A function to bind to the event debounced
+	 */
+	function debounce(wait, immediate, func) {
+		var timeout;
+
+		return function() {
+			var context = this, args = arguments;
+			var later = function() {
+				timeout = null;
+				if (!immediate) func.apply(context, args);
+			};
+			var callNow = immediate && !timeout;
+			clearTimeout(timeout);
+			timeout = setTimeout(later, wait);
+			if (callNow) func.apply(context, args);
+		};
+	}
+
+	/**
+	 * Create an ending event for the event triggered
+	 * @param  {object} e The triggered event's object
+	 * @return {undefined}
+	 */
+	addEndEvent = debounce(200, false, function(e) {
+		$(this).trigger(e.type + 'End');
+	});
 
 
 }());
