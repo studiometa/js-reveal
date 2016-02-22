@@ -3,11 +3,11 @@ var Reveal = Reveal || {};
 (function() {
 	'use strict';
 
-	var _, opts, slctr, lastPos, newPos, loop, viewHeight, addEndEvent;
+	var lastPos, newPos, viewHeight;
 	var $document = $(document);
 	var $window = $(window);
-	var raf = Modernizr.prefixed('requestAnimationFrame', window) || function(callback) { window.setTimeout(callback, 1000 / 60); };
-
+	var transitionEnd = whichTransitionEvent() ? whichTransitionEvent() : 'transitionend';
+	var raf = whichRequestAnimationFrame();
 
 
 	/*
@@ -20,55 +20,60 @@ var Reveal = Reveal || {};
 		console.log('reveal');
 
 		if (!(this instanceof Reveal)) return new Reveal(selector, options);
-		_ = this;
+		var _ = this;
 
-		opts = options;
-		slctr = selector;
+		lastPos = -1;
+		newPos = window.pageYOffset;
 		viewHeight = window.innerHeight;
 
+		_.options = options;
+		_.selector = selector;
 		_.$items = $(selector);
 		_.isActive = false;
-
-		$window.on('resize', addEndEvent);
 
 		// Set all the items
 		_.set();
 
+		// Throttle the window resize event
+		$window.on('resize', addEndEvent());
+
+
+		/**
+		 * The loop which check for items to reveal
+		 * @return {undefined}
+		 */
+		function loop() {
+			console.log('reveal:loop');
+			// If reveal is disabled, stop here
+			if (!_.isActive) return;
+
+			// Update the pageYOffset
+			newPos = window.pageYOffset;
+
+			// If position have not changed,
+			// stop here and restart
+			if (lastPos == newPos) {
+				raf(loop);
+				return;
+			} else {
+				lastPos = newPos;
+			}
+
+			// Check for items in view
+			_.$items.each(function(i, el) {
+				if (newPos + viewHeight > el._top && newPos < el._top + el._height && el._isHidden) {
+					_.reveal(el);
+				}
+			});
+
+			raf(loop);
+		}
+
+		_.loop = loop;
 		return _;
 	};
 
 
-
-	/**
-	 * The loop which check for items to reveal
-	 * @return {undefined}
-	 */
-	loop = function() {
-		console.log('reveal:loop');
-		// If reveal is disabled, stop here
-		if (!_.isActive) return;
-
-		// Update the pageYOffset
-		newPos = window.pageYOffset;
-
-		// If position have not changed,
-		// stop here and restart
-		if (lastPos == newPos) {
-			raf(loop);
-			return;
-		} else {
-			lastPos = newPos;
-		}
-
-		// Check for items in view
-		_.$items.each(function(i, el) {
-			if (newPos + viewHeight > el._top && newPos < el._top + el._height && el._isHidden) {
-				_.reveal(el);
-			}
-		});
-
-		raf(loop);
-	};
 
 
 	/**
@@ -78,12 +83,24 @@ var Reveal = Reveal || {};
 	Reveal.prototype.init = function() {
 		console.log('reveal:init');
 		var _ = this;
-		_.isActive = _.$items.length ? true : false;
-		loop();
-		$window.on('resizeEnd', resizeUpdate);
+		_.enable();
+		$window.on('resizeEnd', { instance: _ }, resizeUpdate);
 		return _;
 	};
 
+
+	/**
+	 * Enable and launch the loop
+	 * @return {[type]} [description]
+	 */
+	Reveal.prototype.enable = function() {
+		console.log('reveal:enable');
+		var _ = this;
+		lastPos = -1;
+		_.isActive = _.$items.length ? true : false;
+		if (_.isActive) _.loop();
+		return _;
+	};
 
 
 	/**
@@ -115,7 +132,7 @@ var Reveal = Reveal || {};
 
 		// Use the default selector if
 		// no argument has been passed
-		selector = selector || slctr;
+		selector = selector || _.selector;
 
 		// Get all needed variables
 		// and save them on the element
@@ -158,10 +175,7 @@ var Reveal = Reveal || {};
 			this._height = $this.outerHeight();
 		});
 
-		// Trigger a new loop for
-		// items which have been added
-		// and are in the viewport
-		lastPos -= 1;
+		_.enable();
 
 		return _;
 	};
@@ -189,15 +203,9 @@ var Reveal = Reveal || {};
 		// Add the new items
 		_.$items = _.$items.add($newItems);
 
-		// Trigger a new loop for
-		// items which have been added
-		// and are in the viewport
-		lastPos -= 1;
-
-		// Enable the reveal if it
-		// has been disabled
-		_.isActive = true;
-		loop();
+		// Re-enable the loop if
+		// it has been stopped
+		_.enable();
 
 		return _;
 	};
@@ -213,20 +221,16 @@ var Reveal = Reveal || {};
 		console.log('reveal:reveal', item);
 		var _ = this;
 
+		var $item = $(item);
 		item._isHidden = false;
-		TweenLite.to(item, item._dur, {
-			delay: item._delay,
-			className: '+=is-visible',
-			ease: Expo.easeOut,
-			onComplete: function() {
-				// Remove the classes on the item
-				$(item).removeClass(item._selector.substring(1) + ' is-visible');
-				// Remove the item from the global object
-				_.$items = _.$items.not(item);
-				// If no items left, disable reveal
-				if (_.$items.length <= 0) _.disable();
-			}
-		});
+
+		$item.on(transitionEnd, { item: item, instance: _ }, revealEnd);
+
+		setTimeout(function() {
+			$item.addClass('is-visible').trigger('reveal:reveal');
+			// If `transitionend` is not supported, trigger it via jQuery
+			if (!transitionEnd) $item.trigger('transitionend');
+		}, item._delay*1000);
 	};
 
 
@@ -237,9 +241,34 @@ var Reveal = Reveal || {};
 	 * ================================ */
 
 
-	function resizeUpdate() {
+	/**
+	 * Stuff to do when an item has been revealed
+	 * @param  {object} e The `transitionEnd` event's object
+	 * @return {undefined}
+	 */
+	function revealEnd(e) {
+		var _ = e.data.instance;
+		var item = e.data.item;
+		var $item = $(item);
+		// Remove the classes on the item and unbind the transition event
+		$item.removeClass(item._selector.substring(1) + ' is-visible')
+			.off(transitionEnd, revealEnd);
+		// Remove the item from the global object
+		_.$items = _.$items.not(item);
+		// If no items left, disable reveal
+		if (_.$items.length <= 0) _.disable();
+	}
+
+
+	/**
+	 * Stuff to do on window resize
+	 * @return {undefined}
+	 */
+	function resizeUpdate(e) {
+		var _ = e.data.instance;
 		_.update(_.$items);
 	}
+
 
 	/**
 	 * Returns a function, that, as long as it continues to be invoked, will not
@@ -267,14 +296,49 @@ var Reveal = Reveal || {};
 		};
 	}
 
+
 	/**
 	 * Create an ending event for the event triggered
 	 * @param  {object} e The triggered event's object
 	 * @return {undefined}
 	 */
-	addEndEvent = debounce(200, false, function(e) {
-		$(this).trigger(e.type + 'End');
-	});
+	function addEndEvent() {
+		return debounce(200, false, function(e) {
+			$(this).trigger(e.type + 'End');
+		});
+	}
+
+
+
+	/**
+	 * Use the correct `transitionend` event
+	 * @return {string} The prefixed event name
+	 */
+	function whichTransitionEvent() {
+		var t;
+		var el = document.createElement('fakeelement');
+		var transitions = {
+			'transition':'transitionend',
+			'OTransition':'oTransitionEnd',
+			'MozTransition':'transitionend',
+			'WebkitTransition':'webkitTransitionEnd'
+		};
+
+		for(t in transitions){
+				if( el.style[t] !== undefined ){
+						return transitions[t];
+				}
+		}
+	}
+
+
+	/**
+	 * Use the correct `requestAnimationFrame` function
+	 * @return {function} The prefixed (or not) function
+	 */
+	function whichRequestAnimationFrame() {
+		return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || function(callback) { window.setTimeout(callback, 1000 / 60); };
+	}
 
 
 }());

@@ -160,7 +160,7 @@
 			.js-reveal {
 				opacity: 0;
 				transform: translateY(100px);
-				/*transition: opacity 0.4s cubic-bezier(0.190, 1.000, 0.220, 1.000), transform 0.4s cubic-bezier(0.190, 1.000, 0.220, 1.000);*/
+				transition: all 0.8s cubic-bezier(0.190, 1.000, 0.220, 1.000);
 			}
 
 			.js-reveal.is-visible {
@@ -190,19 +190,15 @@
 			</section>
 		</main>
 
-		<script defer src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.8.3/modernizr.min.js"></script>
 		<script defer src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-		<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.18.2/TweenLite.min.js"></script>
-		<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.18.2/easing/EasePack.min.js"></script>
-		<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.18.2/plugins/CSSPlugin.min.js"></script>
 		<script defer src="./dist/reveal.min.js"></script>
 		<script defer>
-		window.addEventListener('load', function() {
+			window.addEventListener('load', function() {
 
-			var reveal = new Reveal('.js-reveal');
-			reveal.init();
+				var reveal = new Reveal('.js-reveal');
+				reveal.init();
 
-		});
+			});
 		</script>
 	</body>
 </html>
