@@ -44,6 +44,7 @@
 			});
 		</script>
 	</body>
+</html>
 ```
 
 ## Dependencies
