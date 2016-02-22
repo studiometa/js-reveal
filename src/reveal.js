@@ -22,11 +22,19 @@ var Reveal = Reveal || {};
 		if (!(this instanceof Reveal)) return new Reveal(selector, options);
 		var _ = this;
 
+		// Set global variables
 		lastPos = -1;
 		newPos = window.pageYOffset;
 		viewHeight = window.innerHeight;
 
-		_.options = options;
+
+		// Defaults options
+		_.options = {
+			revealClass: 'is-visible'
+		};
+		// Merge the options
+		$.extend(true, _.options, options);
+
 		_.selector = selector;
 		_.$items = $(selector);
 		_.isActive = false;
@@ -141,7 +149,6 @@ var Reveal = Reveal || {};
 			this._top = Math.round($this.offset().top);
 			this._height = $this.outerHeight();
 			this._isHidden = true;
-			this._dur = $this.data('duration') || 1;
 			this._delay = $this.data('delay') || 0;
 			this._selector = selector;
 		});
@@ -227,7 +234,7 @@ var Reveal = Reveal || {};
 		$item.on(transitionEnd, { item: item, instance: _ }, revealEnd);
 
 		setTimeout(function() {
-			$item.addClass('is-visible').trigger('reveal:reveal');
+			$item.addClass(_.options.revealClass).trigger('reveal:reveal');
 			// If `transitionend` is not supported, trigger it via jQuery
 			if (!transitionEnd) $item.trigger('transitionend');
 		}, item._delay*1000);
@@ -251,8 +258,7 @@ var Reveal = Reveal || {};
 		var item = e.data.item;
 		var $item = $(item);
 		// Remove the classes on the item and unbind the transition event
-		$item.removeClass(item._selector.substring(1) + ' is-visible')
-			.off(transitionEnd, revealEnd);
+		$item.removeClass(item._selector.substring(1) + ' ' + _.options.revealClass).off(transitionEnd, revealEnd);
 		// Remove the item from the global object
 		_.$items = _.$items.not(item);
 		// If no items left, disable reveal
@@ -316,7 +322,7 @@ var Reveal = Reveal || {};
 	 */
 	function whichTransitionEvent() {
 		var t;
-		var el = document.createElement('fakeelement');
+		var el = document.createElement('div');
 		var transitions = {
 			'transition':'transitionend',
 			'OTransition':'oTransitionEnd',

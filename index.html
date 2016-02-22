@@ -186,7 +186,7 @@
 				<figure><img class="js-reveal" src="http://unsplash.it/1300/900"></figure>
 				<figure><img class="js-reveal" src="http://unsplash.it/1900/900"></figure>
 				<figure><img class="js-reveal" src="http://unsplash.it/1200/700"></figure>
-				<p>Photos via <a href="http://unsplash.it/" target="_blank">unsplash.it</a>.</p>
+				<p class="js-reveal">Photos via <a href="http://unsplash.it/" target="_blank">unsplash.it</a>.</p>
 			</section>
 		</main>
 
@@ -195,7 +195,9 @@
 		<script defer>
 			window.addEventListener('load', function() {
 
-				var reveal = new Reveal('.js-reveal');
+				var reveal = new Reveal('.js-reveal', {
+					revealClass: 'is-visible'
+				});
 				reveal.init();
 
 			});
